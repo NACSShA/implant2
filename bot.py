@@ -2,11 +2,13 @@ import telebot
 import sqlite3
 import random
 from datetime import datetime, timedelta
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
+# ========== КОНФИГУРАЦИЯ ==========
 TOKEN = "8802894093:AAEOUqe9KyQr--Y06MZouvAMv5lReqbLBB8"
 bot = telebot.TeleBot(TOKEN, parse_mode='HTML')
 
+# ========== ИМПЕРСКИЙ КАЛЕНДАРЬ И ПОКОЛЕНИЯ ==========
 EPOCH_START = datetime(2026, 5, 29)
 
 def get_imperial_date(real_date):
@@ -31,6 +33,7 @@ def get_generation_letter():
 def format_imperial_date(year, day):
     return f"{day} день {year} Имперского года"
 
+# ========== БАЗА ДАННЫХ ==========
 conn = sqlite3.connect('imperia.db', check_same_thread=False)
 cursor = conn.cursor()
 
@@ -41,96 +44,15 @@ cursor.execute('''
         name TEXT,
         gender TEXT,
         registered_at TEXT,
-        imperial_year INTEGER
+        imperial_year INTEGER,
+        R TEXT DEFAULT 'X',
+        S TEXT DEFAULT 'X',
+        A TEXT DEFAULT 'X',
+        T TEXT DEFAULT 'X',
+        C TEXT DEFAULT 'X'
     )
 ''')
 conn.commit()
-
-def generate_code():
-    current_gen = get_generation_letter()
-    cursor.execute('SELECT COUNT(*) FROM players WHERE code LIKE ?', (f"{current_gen}%",))
-    count_in_gen = cursor.fetchone()[0]
-    return f"{current_gen}{count_in_gen + 1}"
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    user_id = message.from_user.id
-    cursor.execute('SELECT * FROM players WHERE user_id = ?', (user_id,))
-    if cursor.fetchone():
-        bot.reply_to(message, "<pre>Вы уже зарегистрированы. Используйте /me</pre>")
-        return
-    
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("М", callback_data="male"),
-        InlineKeyboardButton("Ж", callback_data="female")
-    )
-    
-    bot.send_message(
-        message.chat.id,
-        "<pre>⭐ Добро пожаловать в зону заботы Империи!\n\nЧтобы продолжить, требуется зарегистрироваться. Укажите свой пол с помощью инлайн-кнопок.</pre>",
-        reply_markup=markup
-    )
-
-male_names = ["Айрон", "Блейз", "Вант", "Вектор", "Вольф", "Грейв", "Грим", "Дарроу", "Дрейк", "Зейн", "Корд", "Кроу", "Марк", "Морроу", "Нокс", "Рейз", "Роан", "Сейдж", "Солан", "Спарк", "Стикс", "Стоун", "Трэвис", "Уэйд", "Фенн", "Хейл", "Хьюго", "Шейд", "Эш", "Юджин"]
-female_names = ["Астра", "Бри", "Векса", "Вера", "Грета", "Джин", "Зара", "Зоя", "Иви", "Ида", "Клара", "Лин", "Лорна", "Люкс", "Ника", "Нова", "Рен", "Риган", "Роан", "Скарлет", "Сигур", "Сэйдж", "Тесса", "Фара", "Хейз", "Шивон", "Эмбер", "Эра", "Юна", "Яра"]
-
-@bot.callback_query_handler(func=lambda call: call.data in ['male', 'female'])
-def handle_gender(call):
-    user_id = call.from_user.id
-    gender = call.data
-    
-    name = random.choice(male_names if gender == 'male' else female_names)
-    code = generate_code()
-    registered_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    imperial_year, _ = get_imperial_date(datetime.now())
-    
-    cursor.execute('''
-        INSERT INTO players (user_id, code, name, gender, registered_at, imperial_year)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (user_id, code, name, gender, registered_at, imperial_year))
-    conn.commit()
-    
-    gender_text = "Мужской" if gender == 'male' else "Женский"
-    
-    bot.edit_message_text(
-        f"<pre>Базовая регистрация завершена!\n\nВАШИ ДАННЫЕ\nИмя: {name}\nПол: {gender_text}\nКод: {code}\nГод регистрации: {imperial_year}</pre>",
-        call.message.chat.id,
-        call.message.message_id
-    )
-
-@bot.message_handler(commands=['me'])
-def show_profile(message):
-    user_id = message.from_user.id
-    cursor.execute('SELECT code, name, gender, imperial_year FROM players WHERE user_id = ?', (user_id,))
-    player = cursor.fetchone()
-    if not player:
-        bot.reply_to(message, "<pre>Вы не зарегистрированы. Напишите /start</pre>")
-        return
-    
-    code, name, gender, year = player
-    gender_text = "Мужской" if gender == 'male' else "Женский"
-    
-    bot.reply_to(
-        message,
-        f"<pre>ВАШ ПРОФИЛЬ\n\nИмя: {name}\nПол: {gender_text}\nКод: {code}\nГод регистрации: {year}</pre>"
-    )
-
-@bot.message_handler(commands=['time'])
-def show_time(message):
-    now = datetime.now()
-    year, day = get_imperial_date(now)
-    generation = get_generation_letter()
-    imperial_str = format_imperial_date(year, day)
-    
-    bot.reply_to(
-        message,
-        f"<pre>Дата: {now.strftime('%d.%m.%Y')}\nИмперская дата: {imperial_str}\nПоколение: {generation}</pre>"
-    )
-
-if __name__ == "__main__":
-    print("Бот запущен...")
-    bot.infinity_polling()
 
 # ========== ГЕНЕРАТОР КОДА ==========
 def generate_code():
@@ -138,6 +60,27 @@ def generate_code():
     cursor.execute('SELECT COUNT(*) FROM players WHERE code LIKE ?', (f"{current_gen}%",))
     count_in_gen = cursor.fetchone()[0]
     return f"{current_gen}{count_in_gen + 1}"
+
+# ========== КЛАВИАТУРА ==========
+def commands_keyboard():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, input_field_placeholder="Меню команд")
+    markup.add(KeyboardButton("Команды i2"))
+    return markup
+
+@bot.message_handler(func=lambda message: message.text == "Команды i2")
+def send_commands_list(message):
+    commands_text = """
+<pre>
+Список команд системы implant2
+
+| Информация о Вас
+/me - показать профиль
+
+| Время
+/time - имперская дата
+</pre>
+    """
+    bot.reply_to(message, commands_text, parse_mode='HTML')
 
 # ========== КОМАНДА /START ==========
 @bot.message_handler(commands=['start'])
@@ -158,6 +101,13 @@ def start(message):
         message.chat.id,
         "<pre>⭐ Добро пожаловать в зону заботы Империи!\n\nЧтобы продолжить, требуется зарегистрироваться. Укажите свой пол с помощью инлайн-кнопок.</pre>",
         reply_markup=markup
+    )
+    
+    # Отправляем клавиатуру с кнопкой команд
+    bot.send_message(
+        message.chat.id,
+        "Для доступа к командам используйте кнопку в поле ввода.",
+        reply_markup=commands_keyboard()
     )
 
 # ========== ОБРАБОТЧИК ВЫБОРА ПОЛА ==========
