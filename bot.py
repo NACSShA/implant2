@@ -87,10 +87,15 @@ def send_commands_list(message):
 def start(message):
     user_id = message.from_user.id
     cursor.execute('SELECT * FROM players WHERE user_id = ?', (user_id,))
-    if cursor.fetchone():
+    player = cursor.fetchone()
+    
+    if player:
         bot.reply_to(message, "<pre>Вы уже зарегистрированы. Используйте /me</pre>")
+        # Отправляем клавиатуру и зарегистрированным
+        bot.send_message(message.chat.id, "Клавиатура команд:", reply_markup=commands_keyboard())
         return
     
+    # Новая регистрация
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("М", callback_data="male"),
@@ -103,12 +108,8 @@ def start(message):
         reply_markup=markup
     )
     
-    # Отправляем клавиатуру с кнопкой команд
-    bot.send_message(
-        message.chat.id,
-        "Для доступа к командам используйте кнопку в поле ввода.",
-        reply_markup=commands_keyboard()
-    )
+    # И новым тоже отправляем клавиатуру
+    bot.send_message(message.chat.id, "Клавиатура команд:", reply_markup=commands_keyboard())
 
 # ========== ОБРАБОТЧИК ВЫБОРА ПОЛА ==========
 male_names = ["Айрон", "Блейз", "Вант", "Вектор", "Вольф", "Грейв", "Грим", "Дарроу", "Дрейк", "Зейн", "Корд", "Кроу", "Марк", "Морроу", "Нокс", "Рейз", "Роан", "Сейдж", "Солан", "Спарк", "Стикс", "Стоун", "Трэвис", "Уэйд", "Фенн", "Хейл", "Хьюго", "Шейд", "Эш", "Юджин"]
