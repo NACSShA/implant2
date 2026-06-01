@@ -2,7 +2,7 @@ import telebot
 import sqlite3
 import random
 from datetime import datetime, timedelta
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ========== КОНФИГУРАЦИЯ ==========
 TOKEN = "8802894093:AAEOUqe9KyQr--Y06MZouvAMv5lReqbLBB8"
@@ -61,25 +61,18 @@ def generate_code():
     count_in_gen = cursor.fetchone()[0]
     return f"{current_gen}{count_in_gen + 1}"
 
-# ========== КЛАВИАТУРА ==========
-def commands_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, input_field_placeholder="Меню команд")
-    markup.add(KeyboardButton("Команды i2"))
-    return markup
-
-@bot.message_handler(func=lambda message: message.text == "Команды i2")
+# ========== КОМАНДА /COMMANDS ==========
+@bot.message_handler(commands=['commands', 'command'])
 def send_commands_list(message):
     commands_text = """
 <pre>
 Список команд системы implant2
 
-| Информация о Вас
 /me - показать профиль
-
-| Время
-/time - имперская дата
+/time - имперская дата и поколение
+/commands - показать этот список
 </pre>
-    """
+"""
     bot.reply_to(message, commands_text, parse_mode='HTML')
 
 # ========== КОМАНДА /START ==========
@@ -87,15 +80,10 @@ def send_commands_list(message):
 def start(message):
     user_id = message.from_user.id
     cursor.execute('SELECT * FROM players WHERE user_id = ?', (user_id,))
-    player = cursor.fetchone()
-    
-    if player:
-        bot.reply_to(message, "<pre>Вы уже зарегистрированы. Используйте /me</pre>")
-        # Отправляем клавиатуру и зарегистрированным
-        bot.send_message(message.chat.id, "Клавиатура команд:", reply_markup=commands_keyboard())
+    if cursor.fetchone():
+        bot.reply_to(message, "<pre>Вы уже зарегистрированы. Используйте /me\n\nМеню команд по команде /commands</pre>")
         return
     
-    # Новая регистрация
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("М", callback_data="male"),
@@ -104,12 +92,9 @@ def start(message):
     
     bot.send_message(
         message.chat.id,
-        "<pre>⭐ Добро пожаловать в зону заботы Империи!\n\nЧтобы продолжить, требуется зарегистрироваться. Укажите свой пол с помощью инлайн-кнопок.</pre>",
+        "<pre>Добро пожаловать в зону заботы Империи.\n\nЧтобы продолжить, требуется зарегистрироваться. Укажите свой пол с помощью инлайн-кнопок.</pre>",
         reply_markup=markup
     )
-    
-    # И новым тоже отправляем клавиатуру
-    bot.send_message(message.chat.id, "Клавиатура команд:", reply_markup=commands_keyboard())
 
 # ========== ОБРАБОТЧИК ВЫБОРА ПОЛА ==========
 male_names = ["Айрон", "Блейз", "Вант", "Вектор", "Вольф", "Грейв", "Грим", "Дарроу", "Дрейк", "Зейн", "Корд", "Кроу", "Марк", "Морроу", "Нокс", "Рейз", "Роан", "Сейдж", "Солан", "Спарк", "Стикс", "Стоун", "Трэвис", "Уэйд", "Фенн", "Хейл", "Хьюго", "Шейд", "Эш", "Юджин"]
@@ -134,7 +119,7 @@ def handle_gender(call):
     gender_text = "Мужской" if gender == 'male' else "Женский"
     
     bot.edit_message_text(
-        f"<pre>Базовая регистрация завершена!\n\nВАШИ ДАННЫЕ\nИмя: {name}\nПол: {gender_text}\nКод: {code}\nГод регистрации: {imperial_year}</pre>",
+        f"<pre>Базовая регистрация завершена!\n\nВАШИ ДАННЫЕ\nИмя: {name}\nПол: {gender_text}\nКод: {code}\nГод регистрации: {imperial_year}\n\nМеню команд по команде /commands</pre>",
         call.message.chat.id,
         call.message.message_id
     )
@@ -154,7 +139,7 @@ def show_profile(message):
     
     bot.reply_to(
         message,
-        f"<pre>ВАШ ПРОФИЛЬ\n\nИмя: {name}\nПол: {gender_text}\nКод: {code}\nГод регистрации: {year}</pre>"
+        f"<pre>ВАШ ПРОФИЛЬ\n\nИмя: {name}\nПол: {gender_text}\nКод: {code}\nГод регистрации: {year}\n\nМеню команд по команде /commands</pre>"
     )
 
 # ========== КОМАНДА /TIME ==========
@@ -167,7 +152,7 @@ def show_time(message):
     
     bot.reply_to(
         message,
-        f"<pre>Дата: {now.strftime('%d.%m.%Y')}\nИмперская дата: {imperial_str}\nПоколение: {generation}</pre>"
+        f"<pre>Дата: {now.strftime('%d.%m.%Y')}\nИмперская дата: {imperial_str}\nПоколение: {generation}\n\nМеню команд по команде /commands</pre>"
     )
 
 # ========== ЗАПУСК БОТА ==========
